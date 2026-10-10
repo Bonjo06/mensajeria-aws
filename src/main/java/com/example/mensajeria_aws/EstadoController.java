@@ -1,37 +1,29 @@
 package com.example.mensajeria_aws;
 
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController; 
 import java.util.Map;
+   import org.springframework.web.bind.annotation.CrossOrigin;
+   import org.springframework.web.bind.annotation.GetMapping;
+   import org.springframework.web.bind.annotation.RestController;
 
-@RestController
-@CrossOrigin(origins = "http://localhost:5173")
-public class EstadoController {
+   @RestController
+   @CrossOrigin(origins = "http://localhost:5173")
+   public class EstadoController {
 
-    private final SqsAsyncClient sqs;
-    private final MensajeriaProperties props;
+       private final ColaAdminService admin;
+       private final MensajeriaProperties props;
 
-    public EstadoController(SqsAsyncClient sqs, MensajeriaProperties props) {
-        this.sqs = sqs;
-        this.props = props;
-    }
+       public EstadoController(ColaAdminService admin, MensajeriaProperties props) {
+           this.admin = admin;
+           this.props = props;
+       }
 
-    @GetMapping("/estado")
-    public Map<String, Long> estado() {
-        return Map.of(
-            "principal", atributo(props.colaOrdenes(), QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES),
-            "enVuelo",   atributo(props.colaOrdenes(), QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES_NOT_VISIBLE),
-            "dlq",       atributo(props.colaOrdenes(), QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES)
-        );
-    }
-
-    private long atributo(String cola, QueueAttributeName nombre) {
-        String url = sqs.getQueueUrl(r -> r.queueName(cola)).join().queueUrl();
-        String valor = sqs.getQueueAttributes(r -> r.queueUrl(url).attributeNames(nombre))
-                .join().attributes().get(nombre);
-        return Long.parseLong(valor);
-    }
-}
+       @GetMapping("/estado")
+        public Map<String, Long> estado() {
+            var principal = admin.estado(props.colaOrdenes());
+            var dlq = admin.estado(props.dlqOrdenes());
+            return Map.of(
+                "principal", principal.get("disponibles"),
+                "enVuelo",   principal.get("enProceso"),
+                "dlq",       dlq.get("disponibles"));
+        }
+   }
